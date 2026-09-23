@@ -51,6 +51,7 @@ export class AuthUserDetailComponent implements OnInit {
   protected readonly genders: Gender[] = [Gender.MALE, Gender.FEMALE, Gender.DIVERSE];
 
   protected readonly ChangeType = ChangeType;
+  protected readonly emailVerificationPending = signal(false);
   public userLoginMustBeDomain: boolean = false;
   protected readonly UserState = UserState;
 
@@ -272,13 +273,17 @@ export class AuthUserDetailComponent implements OnInit {
     this.translate.use(language);
   }
 
-  public async resendEmailVerification(user: User) {
+  public async resendEmailVerification() {
+    if (this.emailVerificationPending()) return;
+    this.emailVerificationPending.set(true);
     try {
-      await this.newMgmtService.resendHumanEmailVerification(user.userId);
+      await this.newAuthService.resendMyEmailVerification();
       this.toast.showInfo('USER.TOAST.EMAILVERIFICATIONSENT', true);
       await this.invalidateUser();
     } catch (error) {
       this.toast.showError(error);
+    } finally {
+      this.emailVerificationPending.set(false);
     }
   }
 
