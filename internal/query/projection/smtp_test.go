@@ -132,6 +132,65 @@ func TestSMTPConfigProjection_reduces(t *testing.T) {
 			},
 		},
 		{
+			name: "reduceSMTPConfigChanged with legacy and plain auth passwords",
+			args: args{
+				event: getEvent(
+					testEvent(
+						instance.SMTPConfigChangedEventType,
+						instance.AggregateType,
+						[]byte(`{
+						"instance_id": "instance-id",	
+						"resource_owner": "ro-id",	
+						"aggregate_id": "agg-id",
+						"id": "config-id",		
+						"description": "test",
+						"tls": true,
+						"senderAddress": "sender",
+						"senderName": "name",
+						"replyToAddress": "reply-to",
+						"host": "host",
+						"password": {"cryptoType": 0, "algorithm": "RSA-265", "keyId": "legacy-key"},
+						"plainAuth": {"password": {"cryptoType": 0, "algorithm": "RSA-265", "keyId": "new-key"}},
+						"user": "user"		
+					}`,
+						),
+					), eventstore.GenericEventMapper[instance.SMTPConfigChangedEvent]),
+			},
+			reduce: (&smtpConfigProjection{}).reduceSMTPConfigChanged,
+			want: wantReduce{
+				aggregateType: eventstore.AggregateType("instance"),
+				sequence:      15,
+				executer: &testExecuter{
+					executions: []execution{
+						{
+							expectedStmt: "UPDATE projections.smtp_configs6 SET (change_date, sequence, description) = ($1, $2, $3) WHERE (id = $4) AND (instance_id = $5)",
+							expectedArgs: []interface{}{
+								anyArg{},
+								uint64(15),
+								"test",
+								"config-id",
+								"instance-id",
+							},
+						},
+						{
+							expectedStmt: "UPDATE projections.smtp_configs6_smtp SET (tls, sender_address, sender_name, reply_to_address, host, username, password) = ($1, $2, $3, $4, $5, $6, $7) WHERE (id = $8) AND (instance_id = $9)",
+							expectedArgs: []interface{}{
+								true,
+								"sender",
+								"name",
+								"reply-to",
+								"host",
+								"user",
+								anyArg{},
+								"config-id",
+								"instance-id",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "reduceSMTPConfigChanged, description",
 			args: args{
 				event: getEvent(
